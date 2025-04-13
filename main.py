@@ -127,65 +127,96 @@ def draw_progress_bar(surface, x, y, w, h, current, maximum, color, label=""):
 def draw_input_popup(surface, mode, input_data, active_field):
     """Рисует всплывающее окно для ввода данных задачи."""
     popup_width = 400
-    popup_height = 250 # Может меняться в зависимости от полей
-    popup_x = (SCREEN_WIDTH - popup_width) // 2
-    popup_y = (SCREEN_HEIGHT - popup_height) // 2
-    popup_rect = pygame.Rect(popup_x, popup_y, popup_width, popup_height)
+    # !!! ИЗМЕНЕНИЕ: Рассчитываем высоту динамически СНАЧАЛА !!!
+    # Определяем поля
+    fields_to_draw = []
+    if mode == 'Habit': fields_to_draw = [('name', 'Name:'), ('type', 'Type (+/-/+-):')]
+    elif mode == 'Daily': fields_to_draw = [('name', 'Name:')]
+    elif mode == 'To-Do': fields_to_draw = [('name', 'Name:'), ('notes', 'Notes (opt):')]
+    else: return {}, None # На случай неизвестного режима
 
+    if not fields_to_draw and mode not in ['Habit', 'Daily', 'To-Do']: # Добавил проверку, если mode правильный, но список полей пуст
+         print(f"  ERROR in draw_input_popup: Unknown mode '{mode}' or empty fields_to_draw.")
+         return {}, None
+
+    num_fields = len(fields_to_draw)
+    field_height = 30
+    field_spacing = 10 # Расстояние между полями
+    button_height = 30
+    padding_top = 60    # Место для заголовка и отступа сверху
+    padding_bottom = 15 # Отступ снизу под кнопками
+    button_v_spacing = 20 # Отступ над кнопками
+
+    # Рассчитываем необходимую высоту
+    required_height = padding_top + (num_fields * (field_height + field_spacing)) + button_v_spacing + button_height + padding_bottom
+    popup_x = (SCREEN_WIDTH - popup_width) // 2
+    popup_y = (SCREEN_HEIGHT - required_height) // 2
+    popup_rect = pygame.Rect(popup_x, popup_y, popup_width, required_height)
+
+
+     # !!! ДОБАВИТЬ ПРОВЕРКИ ЗДЕСЬ !!!
+    print(f"  Inside draw_input_popup: mode={mode}, num_fields={num_fields}")
+    print(f"  Calculated required_height: {required_height}")
+    print(f"  Calculated popup_rect: {popup_rect}")
+    if not pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT).contains(popup_rect):
+        print(f"  WARNING: popup_rect {popup_rect} is outside screen bounds!")
+    elif popup_rect.width <= 0 or popup_rect.height <= 0:
+        print(f"  WARNING: popup_rect {popup_rect} has zero or negative size!")
+    # !!! КОНЕЦ ДОБАВЛЕННЫХ ПРОВЕРОК !!!
+
+
+    # 1. Рисуем фон и рамку правильного размера
     pygame.draw.rect(surface, INPUT_BOX_COLOR, popup_rect, border_radius=10)
     pygame.draw.rect(surface, INPUT_BOX_BORDER_COLOR, popup_rect, 2, border_radius=10)
+    # print(f"Drawing popup background with final rect: {popup_rect}") # Отладка
 
+    # 2. Рисуем заголовок
     title = f"Add New {mode.capitalize()}"
     title_surf = FONT_MEDIUM.render(title, True, BLACK)
-    surface.blit(title_surf, (popup_x + 15, popup_y + 15))
+    surface.blit(title_surf, (popup_rect.x + 15, popup_rect.y + 15))
 
-    field_y = popup_y + 60
-    field_height = 30
+    # 3. Рисуем поля ввода
+    current_field_y = popup_rect.y + padding_top # Начальная Y координата для полей
     label_width = 80
-    input_width = popup_width - label_width - 40 # Отступы слева/справа
-    click_areas = {} # Словарь для кнопок и полей ввода { 'field_name': rect, 'save': rect, 'cancel': rect }
-
-    fields_to_draw = []
-    if mode == 'Habit':
-        fields_to_draw = [('name', 'Name:'), ('type', 'Type (+/-/+-):')]
-        # Можно добавить поля для XP/Gold/Dmg позже
-    elif mode == 'Daily':
-        fields_to_draw = [('name', 'Name:')]
-        # Можно добавить Frequency, XP/Gold/Penalty позже
-    elif mode == 'To-Do':
-        fields_to_draw = [('name', 'Name:'), ('notes', 'Notes (opt):')]
-        # Можно добавить Due Date, XP/Gold/Difficulty позже
+    input_width = popup_width - label_width - 40
+    click_areas = {} # Сбрасываем здесь, т.к. области зависят от финальных координат
 
     for field_key, label_text in fields_to_draw:
         # Метка
         label_surf = FONT_SMALL.render(label_text, True, BLACK)
-        surface.blit(label_surf, (popup_x + 15, field_y + 5))
+        surface.blit(label_surf, (popup_rect.x + 15, current_field_y + 5))
 
         # Поле ввода
-        input_rect = pygame.Rect(popup_x + label_width + 15, field_y, input_width, field_height)
+        input_rect = pygame.Rect(popup_rect.x + label_width + 15, current_field_y, input_width, field_height)
         border_color = INPUT_ACTIVE_BORDER_COLOR if active_field == field_key else INPUT_BOX_BORDER_COLOR
         pygame.draw.rect(surface, WHITE, input_rect)
         pygame.draw.rect(surface, border_color, input_rect, 1)
-        click_areas[field_key] = input_rect # Добавляем поле для клика
+        click_areas[field_key] = input_rect # Добавляем поле в кликабельные зоны
 
-        # Текст внутри поля
-        text_surf = FONT_SMALL.render(input_data.get(field_key, ''), True, INPUT_TEXT_COLOR)
-        surface.blit(text_surf, (input_rect.x + 5, input_rect.y + 5))
+        # Текст внутри поля + Курсор
+        text_to_render = input_data.get(field_key, '')
+        text_surf = FONT_SMALL.render(text_to_render, True, INPUT_TEXT_COLOR)
+        text_rect_in_box = text_surf.get_rect(topleft=(input_rect.x + 5, input_rect.y + 5))
+        # Ограничиваем ширину текста для отрисовки
+        visible_width = min(text_rect_in_box.width, input_rect.width - 10)
+        surface.blit(text_surf, text_rect_in_box, area=pygame.Rect(0, 0, visible_width, text_rect_in_box.height))
 
-        # Курсор (простой)
         if active_field == field_key:
-            cursor_x = input_rect.x + 5 + text_surf.get_width()
-            if pygame.time.get_ticks() % 1000 < 500: # Мигание
+            cursor_x = input_rect.x + 5 + visible_width # Позиция курсора после видимого текста
+            cursor_x = min(cursor_x, input_rect.right - 5) # Не вылезаем за поле
+            if pygame.time.get_ticks() % 1000 < 500:
                  pygame.draw.line(surface, BLACK, (cursor_x, input_rect.y + 5), (cursor_x, input_rect.y + field_height - 5), 1)
 
+        # Обновляем Y для следующего поля
+        current_field_y += field_height + field_spacing
 
-        field_y += field_height + 10
-
-    # Кнопки Сохранить и Отмена
+    # 4. Рисуем кнопки Save и Cancel
+    # Y координата для кнопок = последняя Y поля + отступ над кнопками
+    button_y = current_field_y + button_v_spacing
     button_width = 100
-    button_height = 30
-    save_rect = pygame.Rect(popup_x + popup_width // 2 - button_width - 10, field_y + 20, button_width, button_height)
-    cancel_rect = pygame.Rect(popup_x + popup_width // 2 + 10, field_y + 20, button_width, button_height)
+    # Центрируем кнопки относительно центра попапа по X
+    save_rect = pygame.Rect(popup_rect.centerx - button_width - 10, button_y, button_width, button_height)
+    cancel_rect = pygame.Rect(popup_rect.centerx + 10, button_y, button_width, button_height)
 
     pygame.draw.rect(surface, GREEN, save_rect, border_radius=5)
     pygame.draw.rect(surface, RED, cancel_rect, border_radius=5)
@@ -195,23 +226,14 @@ def draw_input_popup(surface, mode, input_data, active_field):
     surface.blit(save_text, save_text.get_rect(center=save_rect.center))
     surface.blit(cancel_text, cancel_text.get_rect(center=cancel_rect.center))
 
+    # Добавляем кнопки в кликабельные зоны
     click_areas['save'] = save_rect
     click_areas['cancel'] = cancel_rect
+    # print(f"  Drew Save button at {save_rect}") # Отладка
+    # print(f"  Drew Cancel button at {cancel_rect}") # Отладка
 
-    # Динамически изменяем высоту окна, если нужно
-    actual_height = (field_y + 20 + button_height + 15) - popup_y
-    if actual_height != popup_height:
-        popup_rect.height = actual_height
-        # Перерисовываем фон и рамку с новой высотой
-        pygame.draw.rect(surface, INPUT_BOX_COLOR, popup_rect, border_radius=10)
-        pygame.draw.rect(surface, INPUT_BOX_BORDER_COLOR, popup_rect, 2, border_radius=10)
-        # Придется перерисовать все элементы внутри, если высота изменилась значительно
-        # В данном случае, кнопки просто сдвинутся ниже, так что перерисовка не строго обязательна
-        # но для чистоты можно было бы перенести отрисовку кнопок после расчета высоты
-
-    return click_areas, popup_rect # Возвращаем области клика и сам прямоугольник попапа
-
-
+    # Возвращаем собранные области и финальный прямоугольник
+    return click_areas, popup_rect
 
 # --- Основные игровые функции ---
 def gain_xp_gold(character, xp_gain, gold_gain):
@@ -337,73 +359,7 @@ def draw_character_panel(surface, char_data):
     draw_progress_bar(surface, bar_x, panel_rect.top + 90, bar_width, 15,
                        char_data['xp'], char_data['xp_to_next_level'], XP_COLOR, "XP: ")
 
-# def draw_task_list(surface, title, tasks, task_type, x, y, w, h):
-#     """Рисует список задач (Habits, Dailies, To-Dos)."""
-#     base_rect = pygame.Rect(x, y, w, h)
-#     pygame.draw.rect(surface, GRAY, base_rect, border_radius=5)
-#     pygame.draw.rect(surface, BLACK, base_rect, 1, border_radius=5)
 
-#     title_surf = FONT_MEDIUM.render(title, True, BLACK)
-#     surface.blit(title_surf, (x + 10, y + 5))
-
-#     item_y = y + 40
-#     item_height = 35
-#     button_size = 24
-#     click_areas = [] # Список для хранения [(rect, type, task_id, action), ...]
-
-#     for task in tasks:
-#         if item_y + item_height > y + h - 10: break # Не выходим за границы
-
-#         task_rect = pygame.Rect(x + 5, item_y, w - 10, item_height)
-#         pygame.draw.rect(surface, WHITE, task_rect, border_radius=3)
-#         pygame.draw.rect(surface, DARK_GRAY, task_rect, 1, border_radius=3)
-
-#         # Название задачи
-#         task_name_rect = pygame.Rect(task_rect.left + 5, task_rect.top + 5, task_rect.width - 70, task_rect.height - 10)
-#         draw_text(surface, task['name'], FONT_SMALL, BLACK, task_name_rect)
-
-#         # Кнопки действий
-#         if task_type == 'habits':
-#             # Кнопка "+"
-#             plus_rect = pygame.Rect(task_rect.right - button_size*2 - 10, task_rect.centery - button_size // 2, button_size, button_size)
-#             pygame.draw.rect(surface, GREEN, plus_rect, border_radius=3)
-#             plus_text = FONT_MEDIUM.render("+", True, WHITE)
-#             surface.blit(plus_text, plus_text.get_rect(center=plus_rect.center))
-#             click_areas.append((plus_rect, task_type, task['id'], 'positive'))
-
-#             # Кнопка "-" (если тип '-' или '+-')
-#             if task['type'] in ('-', '+-'):
-#                 minus_rect = pygame.Rect(task_rect.right - button_size - 5, task_rect.centery - button_size // 2, button_size, button_size)
-#                 pygame.draw.rect(surface, RED, minus_rect, border_radius=3)
-#                 minus_text = FONT_MEDIUM.render("-", True, WHITE)
-#                 surface.blit(minus_text, minus_text.get_rect(center=minus_rect.center))
-#                 click_areas.append((minus_rect, task_type, task['id'], 'negative'))
-
-#         elif task_type == 'dailies':
-#             check_rect = pygame.Rect(task_rect.right - button_size - 5, task_rect.centery - button_size // 2, button_size, button_size)
-#             if task['completed_today']:
-#                 pygame.draw.rect(surface, DARK_GRAY, check_rect, border_radius=3) # Отмечаем серым выполненные
-#                 surface.blit(SPRITES['checkmark'], check_rect.topleft)
-#             else:
-#                 pygame.draw.rect(surface, GREEN, check_rect, border_radius=3) # Зеленая кнопка для выполнения
-#                 surface.blit(SPRITES['checkmark'], check_rect.topleft)
-#                 click_areas.append((check_rect, task_type, task['id'], 'complete'))
-#             # Отображение стрика
-#             streak_text = f"Streak: {task.get('streak', 0)}"
-#             streak_surf = FONT_SMALL.render(streak_text, True, BLUE)
-#             surface.blit(streak_surf, (task_rect.left + 5, task_rect.bottom - 15))
-
-
-#         elif task_type == 'todos':
-#             check_rect = pygame.Rect(task_rect.right - button_size - 5, task_rect.centery - button_size // 2, button_size, button_size)
-#             pygame.draw.rect(surface, GREEN, check_rect, border_radius=3)
-#             surface.blit(SPRITES['checkmark'], check_rect.topleft)
-#             click_areas.append((check_rect, task_type, task['id'], 'complete'))
-#             # Можно добавить дату или сложность
-
-#         item_y += item_height + 5
-
-#     return click_areas # Возвращаем области, на которые можно кликнуть
 
 def draw_rewards_panel(surface, rewards, character_gold, x, y, w, h):
     """Рисует панель с наградами."""
@@ -495,130 +451,114 @@ def game_loop():
     input_data = {}
     active_input_field = None
 
-    # --- Переменные для хранения кликабельных зон ---
-    # Они будут обновляться в конце каждого кадра (в секции отрисовки)
-    # и использоваться в начале следующего кадра (в секции обработки событий)
     last_frame_main_ui_areas = []
     last_frame_popup_areas = {}
     last_frame_popup_rect = None
 
+    skip_first_popup_click = False  # Новый флаг
+
     while running:
         mouse_pos = pygame.mouse.get_pos()
-
-        # ===================================
-        # === 1. ОБРАБОТКА СОБЫТИЙ / ВВОДА ===
-        # ===================================
-        # Используем области, сгенерированные на *предыдущем* кадре
-        # (last_frame_main_ui_areas, last_frame_popup_areas, last_frame_popup_rect)
-
-        click_processed_in_event_loop = False # Флаг, что клик был обработан здесь
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
-            # --- Обработка ввода текста (если активно окно) ---
-            if input_mode and active_input_field:
-                if event.type == pygame.KEYDOWN:
-                    # ... (весь ваш код для K_BACKSPACE, K_RETURN, K_TAB, event.unicode) ...
-                    # Важно: этот ввод обрабатывается сразу
-                    pass # Логика остается прежней
+            if event.type == pygame.KEYDOWN and input_mode and active_input_field:
+                current_text = input_data.get(active_input_field, '')
 
-            # --- Обработка кликов мыши ---
+                if event.key == pygame.K_BACKSPACE:
+                    input_data[active_input_field] = current_text[:-1]
+                elif event.key == pygame.K_RETURN:
+                    pass
+                elif event.key == pygame.K_TAB:
+                    fields = [f for f in last_frame_popup_areas if f not in ['save', 'cancel']]
+                    if fields:
+                        try:
+                            current_index = fields.index(active_input_field)
+                            next_index = (current_index + 1) % len(fields)
+                            active_input_field = fields[next_index]
+                        except:
+                            active_input_field = fields[0]
+                elif event.unicode.isprintable():
+                    input_data[active_input_field] = current_text + event.unicode
+                continue
+
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                click_processed_in_event_loop = True # Отмечаем, что был клик
+                if skip_first_popup_click:
+                    skip_first_popup_click = False
+                    continue
 
-                # Сначала проверяем клик по попапу, если он активен
                 if input_mode and last_frame_popup_rect and last_frame_popup_areas:
                     clicked_popup_element = False
                     for name, rect in last_frame_popup_areas.items():
-                        if rect.collidepoint(mouse_pos):
+                        if name not in ['save', 'cancel'] and rect.collidepoint(mouse_pos):
+                            active_input_field = name
                             clicked_popup_element = True
-                            print(f"Popup Click: {name}") # Отладка
+                            break
 
-                            if name == 'save':
-                                # --- Логика сохранения ---
-                                task_name = input_data.get('name', '').strip()
-                                if task_name: # Проверка, что имя не пустое
-                                    # ... (весь ваш код для сборки new_task_data и вызова add_task) ...
-                                    new_task_data = {'name': task_name}
-                                    task_type_db = None
-                                    if input_mode == 'Habit':
-                                        task_type_db = 'habits'; habit_type = input_data.get('type', '+-').strip(); new_task_data['type'] = habit_type if habit_type in ['+', '-', '+-'] else '+-' ; # Добавил значения по умолчанию в add_task
-                                    elif input_mode == 'Daily':
-                                        task_type_db = 'dailies'
-                                    elif input_mode == 'To-Do':
-                                        task_type_db = 'todos'; new_task_data['notes'] = input_data.get('notes', '').strip()
+                    if not clicked_popup_element:
+                        for name, rect in last_frame_popup_areas.items():
+                            if name in ['save', 'cancel'] and rect.collidepoint(mouse_pos):
+                                if name == 'save':
+                                    task_name = input_data.get('name', '').strip()
+                                    if task_name:
+                                        new_task_data = {'name': task_name}
+                                        task_type_db = None
+                                        if input_mode == 'Habit':
+                                            task_type_db = 'habits'
+                                            habit_type = input_data.get('type', '+-').strip()
+                                            new_task_data['type'] = habit_type if habit_type in ['+', '-', '+-'] else '+-'
+                                        elif input_mode == 'Daily':
+                                            task_type_db = 'dailies'
+                                        elif input_mode == 'To-Do':
+                                            task_type_db = 'todos'
+                                            new_task_data['notes'] = input_data.get('notes', '').strip()
 
-                                    if task_type_db:
-                                        new_id = add_task(task_type_db, new_task_data)
-                                        if new_id:
-                                            print(f"Added new {input_mode} (ID: {new_id}): {task_name}")
-                                            # Обновляем локальные списки
-                                            if input_mode == 'Habit': habits = get_tasks('habits')
-                                            elif input_mode == 'Daily': dailies = get_tasks('dailies')
-                                            elif input_mode == 'To-Do': todos = get_tasks('todos')
-                                        else: print(f"Error adding {input_mode}.")
-                                    # Сброс после сохранения
-                                    input_mode = None; input_data = {}; active_input_field = None
-                                else:
-                                    print("Error: Task name cannot be empty.")
-                                    # Не закрываем окно, даем исправить
+                                        if task_type_db:
+                                            new_id = add_task(task_type_db, new_task_data)
+                                            if new_id:
+                                                if input_mode == 'Habit': habits = get_tasks('habits')
+                                                elif input_mode == 'Daily': dailies = get_tasks('dailies')
+                                                elif input_mode == 'To-Do': todos = get_tasks('todos')
+                                        input_mode = None
+                                        input_data = {}
+                                        active_input_field = None
+                                        last_frame_popup_rect = None
+                                        last_frame_popup_areas = {}
+                                    else:
+                                        print("Task name cannot be empty.")
+                                elif name == 'cancel':
+                                    input_mode = None
+                                    input_data = {}
+                                    active_input_field = None
+                                    last_frame_popup_rect = None
+                                    last_frame_popup_areas = {}
+                                break
 
-                            elif name == 'cancel':
-                                print("Popup Cancel Clicked")
-                                # Сброс при отмене
-                                input_mode = None; input_data = {}; active_input_field = None
+                    if last_frame_popup_rect and last_frame_popup_rect.collidepoint(mouse_pos) and not clicked_popup_element:
+                        active_input_field = None
+                    elif last_frame_popup_rect and not last_frame_popup_rect.collidepoint(mouse_pos):
+                        input_mode = None
+                        input_data = {}
+                        active_input_field = None
+                        last_frame_popup_rect = None
+                        last_frame_popup_areas = {}
 
-                            elif name in ['name', 'type', 'notes']: # Кликнули на поле ввода
-                                print(f"Activating input field: {name}")
-                                active_input_field = name
-                            break # Выходим из цикла проверки кликов попапа
-                    # Если кликнули внутри прямоугольника попапа, но не на элемент - можно ничего не делать
-                    # или деактивировать поле ввода:
-                    # if not clicked_popup_element and last_frame_popup_rect.collidepoint(mouse_pos):
-                    #     active_input_field = None
-                    # Если кликнули ВНЕ попапа - закрываем его
-                    if not last_frame_popup_rect.collidepoint(mouse_pos):
-                         print("Clicked outside popup, closing.")
-                         input_mode = None; input_data = {}; active_input_field = None
 
-                # Если попап не активен ИЛИ клик был вне его, проверяем основной UI
-                elif not input_mode or not (last_frame_popup_rect and last_frame_popup_rect.collidepoint(mouse_pos)):
-                    # Используем области основного UI с *прошлого* кадра
+                elif not input_mode:
                     for area_rect, area_type, item_id, action in last_frame_main_ui_areas:
-                         if area_rect.collidepoint(mouse_pos):
-                             print(f"Main UI Click: Type={area_type}, ID={item_id}, Action={action}") # Отладка
-
-                             # --- Логика обработки кликов основного UI ---
-                             if action == 'add_new':
-                                 print(f"Opening input for: {area_type}")
-                                 input_mode = area_type.capitalize() # 'Habit', 'Daily', 'To-Do'
-                                 input_data = {} # Очищаем данные для нового ввода
-                                 active_input_field = 'name' # Активируем первое поле
-                                 # Очищаем данные попапа на всякий случай
-                                 last_frame_popup_areas = {}
-                                 last_frame_popup_rect = None
-
-                             # ... (весь ваш код обработки 'positive', 'negative', 'complete', 'buy', 'equip') ...
-                             # Не забудьте обновлять списки (habits, dailies, todos, rewards) и character_data
-                             # и вызывать update_character_data(character_data) после изменений
-
-                             elif area_type == 'habits':
-                                 # ... (логика для habits) ...
-                                 habits = get_tasks('habits'); update_character_data(character_data)
-                             elif area_type == 'dailies':
-                                 # ... (логика для dailies) ...
-                                 dailies = get_tasks('dailies'); update_character_data(character_data)
-                             elif area_type == 'todos':
-                                  # ... (логика для todos) ...
-                                  todos = get_tasks('todos'); update_character_data(character_data)
-                             elif area_type == 'reward':
-                                  # ... (логика для reward) ...
-                                  rewards = get_rewards(); update_character_data(character_data)
-
-
-                             break # Выходим из цикла проверки кликов основного UI, т.к. клик обработан
+                        if area_rect.collidepoint(mouse_pos):
+                            if action == 'add_new':
+                                type_map = {'habits': 'Habit', 'dailies': 'Daily', 'todos': 'To-Do'}
+                                input_mode = type_map.get(area_type, None)
+                                input_data = {}
+                                active_input_field = 'name'
+                                last_frame_popup_areas = {}
+                                last_frame_popup_rect = None
+                                skip_first_popup_click = True
+                            # Остальная логика UI...
+                            break
 
 
         # --- Логика обновления (если нужно, например, анимации) ---
@@ -628,34 +568,37 @@ def game_loop():
         screen.blit(BG_SURFACE, (0, 0))
         draw_character_panel(screen, character_data)
 
-        # --- Отрисовка списков и сбор их областей ---
         col_width = (SCREEN_WIDTH - 40) // 3
         col_height = SCREEN_HEIGHT - 160 - 100
         list_y = 140
-        # Вызываем функции отрисовки, они возвращают списки [(rect, type, id, action), ...]
         current_habits_clicks = draw_task_list(screen, "Habits", habits, 'habits', 10, list_y, col_width, col_height)
         current_dailies_clicks = draw_task_list(screen, "Dailies", dailies, 'dailies', 15 + col_width, list_y, col_width, col_height)
         current_todos_clicks = draw_task_list(screen, "To-Dos", todos, 'todos', 20 + col_width*2, list_y, col_width, col_height)
 
-        # --- Отрисовка наград и сбор их областей ---
         rewards_y = list_y + col_height + 10
         rewards_height = SCREEN_HEIGHT - rewards_y - 10
         current_rewards_clicks = draw_rewards_panel(screen, rewards, character_data['gold'], 10, rewards_y, SCREEN_WIDTH - 20, rewards_height)
 
-        # Сохраняем все области основного UI для использования на следующем кадре
         current_main_ui_areas = current_habits_clicks + current_dailies_clicks + current_todos_clicks + current_rewards_clicks
 
-        # --- Отрисовка попапа (если активен) и сбор его областей ---
         current_popup_areas = {}
         current_popup_rect = None
+        print(f"[DRAW PHASE] Checking if popup should draw. input_mode = {input_mode}")
         if input_mode:
-            # Функция отрисовки возвращает словарь областей и прямоугольник окна
+            # Функция отрисовки использует ТЕКУЩЕЕ состояние input_data и active_input_field
             current_popup_areas, current_popup_rect = draw_input_popup(screen, input_mode, input_data, active_input_field)
+            # Убери или закомментируй старый print внутри if, чтобы не дублировать
+            # print(f"  Drew popup. Areas: {list(current_popup_areas.keys())}, Rect: {current_popup_rect}")
+            if current_popup_rect: # Дополнительная проверка, что rect вернулся
+                 print(f"  Drew popup. Final Rect: {current_popup_rect}")
+            else:
+                 print("  WARNING: draw_input_popup returned None for rect!")
 
-        # --- ОБНОВЛЯЕМ ПЕРЕМЕННЫЕ ДЛЯ СЛЕДУЮЩЕГО КАДРА ---
+        # ОБНОВЛЯЕМ ПЕРЕМЕННЫЕ ДЛЯ СЛЕДУЮЩЕГО КАДРА
         last_frame_main_ui_areas = current_main_ui_areas
         last_frame_popup_areas = current_popup_areas
         last_frame_popup_rect = current_popup_rect
+        # print(f"End of frame. Last popup areas: {list(last_frame_popup_areas.keys())}") # Отладка
 
         # ===================================
         # === 4. ОБНОВЛЕНИЕ ЭКРАНА        ===
