@@ -43,13 +43,10 @@ def init_db():
         CREATE TABLE IF NOT EXISTS habits (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            type TEXT CHECK(type IN ('+', '-', '+-')) NOT NULL, -- +, -, или +-
             value_xp INTEGER DEFAULT 5,
             value_gold INTEGER DEFAULT 1,
-            value_dmg INTEGER DEFAULT 5, -- Урон для плохих привычек
             counter INTEGER DEFAULT 0,
-            last_triggered_pos DATE, -- Дата последнего позитивного триггера
-            last_triggered_neg DATE  -- Дата последнего негативного триггера
+            last_triggered DATE  -- Renamed from last_triggered_pos since we only have positive now
         )
     ''')
 
@@ -146,8 +143,8 @@ def add_task(task_type, data):
     conn = get_db_connection()
     if task_type == 'habits':
         cursor = conn.execute(
-            'INSERT INTO habits (name, type, value_xp, value_gold, value_dmg) VALUES (?, ?, ?, ?, ?)',
-            (data['name'], data.get('type', '+-'), data.get('value_xp', 5), data.get('value_gold', 1), data.get('value_dmg', 5))
+            'INSERT INTO habits (name, value_xp, value_gold) VALUES (?, ?, ?)',
+            (data['name'], data.get('value_xp', 5), data.get('value_gold', 1))
         )
     elif task_type == 'dailies':
          cursor = conn.execute(

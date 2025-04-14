@@ -128,13 +128,17 @@ def draw_progress_bar(surface, x, y, w, h, current, maximum, color, label=""):
 def draw_input_popup(surface, mode, input_data, active_field):
     """Рисует всплывающее окно для ввода данных задачи."""
     popup_width = 400
-    # !!! ИЗМЕНЕНИЕ: Рассчитываем высоту динамически СНАЧАЛА !!!
+    
     # Определяем поля
     fields_to_draw = []
-    if mode == 'Habit': fields_to_draw = [('name', 'Name:'), ('type', 'Type (+/-/+-):')]
-    elif mode == 'Daily': fields_to_draw = [('name', 'Name:')]
-    elif mode == 'To-Do': fields_to_draw = [('name', 'Name:'), ('notes', 'Notes (opt):')]
-    else: return {}, None # На случай неизвестного режима
+    if mode == 'Habit': 
+        fields_to_draw = [('name', 'Name:')]  # Removed type field
+    elif mode == 'Daily': 
+        fields_to_draw = [('name', 'Name:')]
+    elif mode == 'To-Do': 
+        fields_to_draw = [('name', 'Name:'), ('notes', 'Notes (opt):')]
+    else: 
+        return {}, None
 
     if not fields_to_draw and mode not in ['Habit', 'Daily', 'To-Do']: # Добавил проверку, если mode правильный, но список полей пуст
          print(f"  ERROR in draw_input_popup: Unknown mode '{mode}' or empty fields_to_draw.")
@@ -439,7 +443,7 @@ def draw_rewards_panel(surface, rewards, character_gold, x, y, w, h):
 def draw_edit_popup(surface, task_data, active_field):
     """Рисует всплывающее окно для редактирования задачи."""
     popup_width = 400
-    popup_height = 200
+    popup_height = 150
     popup_x = (SCREEN_WIDTH - popup_width) // 2
     popup_y = (SCREEN_HEIGHT - popup_height) // 2
     popup_rect = pygame.Rect(popup_x, popup_y, popup_width, popup_height)
@@ -461,22 +465,17 @@ def draw_edit_popup(surface, task_data, active_field):
     # Name field
     name_label = FONT_SMALL.render("Name:", True, BLACK)
     name_rect = pygame.Rect(popup_x + 30, popup_y + 60, field_width, field_height)
-    pygame.draw.rect(surface, WHITE if active_field != 'name' else LIGHT_BLUE, name_rect, border_radius=3)
+    pygame.draw.rect(surface, LIGHT_BLUE if active_field == 'name' else WHITE, name_rect, border_radius=3)
     pygame.draw.rect(surface, BLACK, name_rect, 1, border_radius=3)
-    name_text = FONT_SMALL.render(task_data.get('name', ''), True, BLACK)
+    
+    # Display either the current input or the stored name
+    current_text = task_data.get('name', '')
+    if active_field == 'name':
+        current_text = task_data.get('current_edit', current_text)
+    name_text = FONT_SMALL.render(current_text, True, BLACK)
     surface.blit(name_label, (name_rect.left, name_rect.top - 20))
     surface.blit(name_text, (name_rect.left + 5, name_rect.centery - name_text.get_height()//2))
     fields['name'] = name_rect
-
-    # Type field
-    type_label = FONT_SMALL.render("Type (+/-/+-):", True, BLACK)
-    type_rect = pygame.Rect(popup_x + 30, popup_y + 120, field_width, field_height)
-    pygame.draw.rect(surface, WHITE if active_field != 'type' else LIGHT_BLUE, type_rect, border_radius=3)
-    pygame.draw.rect(surface, BLACK, type_rect, 1, border_radius=3)
-    type_text = FONT_SMALL.render(task_data.get('type', ''), True, BLACK)
-    surface.blit(type_label, (type_rect.left, type_rect.top - 20))
-    surface.blit(type_text, (type_rect.left + 5, type_rect.centery - type_text.get_height()//2))
-    fields['type'] = type_rect
 
     # Buttons
     button_width = 80
@@ -578,20 +577,21 @@ def game_loop():
                                         task_type_db = None
                                         if input_mode == 'Habit':
                                             task_type_db = 'habits'
-                                            habit_type = input_data.get('type', '+-').strip()
-                                            new_task_data['type'] = habit_type if habit_type in ['+', '-', '+-'] else '+-'
                                         elif input_mode == 'Daily':
                                             task_type_db = 'dailies'
                                         elif input_mode == 'To-Do':
                                             task_type_db = 'todos'
-                                            new_task_data['notes'] = input_data.get('notes', '').strip()
+                                        new_task_data['notes'] = input_data.get('notes', '').strip()
 
                                         if task_type_db:
                                             new_id = add_task(task_type_db, new_task_data)
                                             if new_id:
-                                                if input_mode == 'Habit': habits = get_tasks('habits')
-                                                elif input_mode == 'Daily': dailies = get_tasks('dailies')
-                                                elif input_mode == 'To-Do': todos = get_tasks('todos')
+                                                if input_mode == 'Habit': 
+                                                    habits = get_tasks('habits')
+                                                elif input_mode == 'Daily': 
+                                                    dailies = get_tasks('dailies')
+                                                elif input_mode == 'To-Do': 
+                                                    todos = get_tasks('todos')
                                         input_mode = None
                                         input_data = {}
                                         active_input_field = None
@@ -617,21 +617,21 @@ def game_loop():
                         last_frame_popup_areas = {}
 
                 elif edit_mode:
-                    # Handle edit popup clicks
                     clicked_popup_element = False
                     for field_name, field_rect in last_frame_popup_areas.items():
                         if field_rect.collidepoint(mouse_pos):
                             clicked_popup_element = True
-                            if field_name in ['name', 'type']:
-                                active_edit_field = field_name
+                            if field_name == 'name':
+                                active_edit_field = 'name'
+                                # Initialize current_edit if not exists
+                                if 'current_edit' not in edit_data:
+                                    edit_data['current_edit'] = edit_data.get('name', '')
                             elif field_name == 'save':
-                                # Update the task in database
-                                if edit_data.get('name'):  # Ensure name is not empty
+                                if edit_data.get('current_edit'):  # Save the edited name
                                     update_task('habits', edit_data['id'], {
-                                        'name': edit_data['name'],
-                                        'type': edit_data.get('type', '+-')
+                                        'name': edit_data['current_edit']
                                     })
-                                    habits = get_tasks('habits')  # Refresh habits list
+                                    habits = get_tasks('habits')
                                     edit_mode = None
                                     edit_data = {}
                                     active_edit_field = None
@@ -698,9 +698,30 @@ def game_loop():
                                     edit_mode = True
                                     edit_data = task.copy()
                                     active_edit_field = 'name'
+                                    edit_data['current_edit'] = edit_data.get('name', '')
                             # Остальная логика UI...
                             break
 
+            if event.type == pygame.KEYDOWN and edit_mode and active_edit_field:
+                if event.key == pygame.K_BACKSPACE:
+                    edit_data['current_edit'] = edit_data.get('current_edit', '')[:-1]
+                elif event.key == pygame.K_RETURN:
+                    # Save on Enter key
+                    if edit_data.get('current_edit'):
+                        update_task('habits', edit_data['id'], {
+                            'name': edit_data['current_edit']
+                        })
+                        habits = get_tasks('habits')
+                        edit_mode = None
+                        edit_data = {}
+                        active_edit_field = None
+                elif event.key == pygame.K_ESCAPE:
+                    # Cancel on Escape key
+                    edit_mode = None
+                    edit_data = {}
+                    active_edit_field = None
+                elif event.unicode.isprintable():
+                    edit_data['current_edit'] = edit_data.get('current_edit', '') + event.unicode
 
         # --- Логика обновления (если нужно, например, анимации) ---
         # ... пока пусто ...
