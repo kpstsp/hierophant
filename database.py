@@ -110,10 +110,17 @@ def init_db():
 # --- Функции для получения/обновления данных ---
 
 def get_character_data():
+    """Получает данные персонажа."""
     conn = get_db_connection()
-    char = conn.execute('SELECT * FROM character WHERE id = 1').fetchone()
+    cursor = conn.cursor()
+    char = cursor.execute('SELECT * FROM character WHERE id = 1').fetchone()
     conn.close()
-    return dict(char) if char else None
+    
+    if char:
+        # Convert tuple to dictionary using column names
+        columns = [description[0] for description in cursor.description]
+        return dict(zip(columns, char))
+    return None
 
 def update_character_data(data):
     conn = get_db_connection()
@@ -127,16 +134,31 @@ def update_character_data(data):
 
 # --- Функции для Задач (CRUD - Create, Read, Update, Delete) ---
 
-def get_tasks(task_type):
-    """Получает все задачи указанного типа ('habits', 'dailies', 'todos')."""
+def get_tasks(task_type, include_completed=False):
+    """
+    Получает все задачи указанного типа ('habits', 'dailies', 'todos').
+    
+    Args:
+        task_type: тип задач ('habits', 'dailies', 'todos')
+        include_completed: если True, включает выполненные задачи для todos
+    """
     conn = get_db_connection()
-    if task_type == 'todos':
-        # Показываем невыполненные тудушки
-        tasks = conn.execute(f'SELECT * FROM {task_type} WHERE completed = 0 ORDER BY creation_date').fetchall()
+    cursor = conn.cursor()
+    
+    if task_type == 'todos' and not include_completed:
+        # Показываем только невыполненные тудушки
+        cursor.execute(f'SELECT * FROM {task_type} WHERE completed = 0 ORDER BY creation_date')
     else:
-        tasks = conn.execute(f'SELECT * FROM {task_type} ORDER BY id').fetchall()
+        cursor.execute(f'SELECT * FROM {task_type} ORDER BY id')
+    
+    tasks = cursor.fetchall()
+    
+    # Convert tuples to dictionaries using column names
+    columns = [description[0] for description in cursor.description]
+    result = [dict(zip(columns, task)) for task in tasks]
+    
     conn.close()
-    return [dict(task) for task in tasks]
+    return result
 
 def add_task(task_type, data):
     """Добавляет новую задачу."""
