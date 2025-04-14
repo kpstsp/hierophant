@@ -4,7 +4,7 @@
 
 Turn your daily life into a game! This Pygame application helps you track habits, daily tasks, and to-dos, rewarding you with XP, gold, and virtual items like an RPG character.
 
-**(Optional: Add a screenshot or GIF of the application here)** ![screenshot_placeholder](link_to_your_screenshot.png)
+ ![screenshot_placeholder](link_to_your_screenshot.png)
 
 ## Features
 
@@ -35,7 +35,7 @@ Turn your daily life into a game! This Pygame application helps you track habits
    
    ```bash
    git clone <your-repository-url> # Or download the ZIP
-   cd rpg-life-tracker
+   cd hierophant
    ```
 
 2. **Python:** Ensure you have Python 3 installed on your system.
@@ -48,19 +48,7 @@ Turn your daily life into a game! This Pygame application helps you track habits
    
    *(Or `python -m pip install pygame` or `pip3 install pygame` depending on your system setup)*
 
-4. **Assets Folder:** Create an `assets` folder in the main project directory (where `main.py` is located) if it doesn't exist.
 
-5. **Place Sprites:** Copy the required image files into the `assets` folder. The application expects the following filenames (you can replace them with your own, but update the `SPRITES` dictionary in `main.py`):
-   
-   - `checkmark.png` (For completing tasks)
-   - `x_button.png` (Currently unused, but loaded)
-   - `character.png` (Your character's avatar)
-   - `background.png` (Optional: A tileable background image)
-   - `axe.png` (Reward item)
-   - `dragon.png` (Reward item)
-   - `feather.png` (Reward item)
-   - `creature.png` (Reward item)
-   - `map_study.png` (Reward item / decoration)
 
 ## Running the Application
 
@@ -124,17 +112,12 @@ rpg-life-tracker/
 
 Contributions are welcome! Feel free to fork the repository, make improvements, and submit a pull request. Please adhere to standard Python coding practices.
 
-*(Optional: Add specific contribution guidelines if desired)*
+
 
 ## License
 
-*(Optional: Specify a license, e.g., MIT License)*
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 
 ```
 
-**How to use this:**
-
-1. Save the content above into a file named `README.md` in the root directory of your project (the same place as `main.py`).
-2. **Replace Placeholder:** If you have a screenshot, upload it somewhere (like GitHub itself if you're hosting it there) and replace `link_to_your_screenshot.png` with the actual URL. If not, you can remove the `![screenshot_placeholder](...)` line for now.
-3. **Update Repository URL:** If you plan to host this on GitHub/GitLab etc., replace `<your-repository-url>` in the `git clone` command with the actual URL.
-4. **Add License:** If you choose a license (like MIT), add a `LICENSE` file to your project and mention it in the README.
