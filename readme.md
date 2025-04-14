@@ -1,10 +1,8 @@
-
-
 # Hierophant: RPG Life Tracker
 
-Turn your daily life into a game! This Pygame application helps you track habits, daily tasks, and to-dos, rewarding you with XP, gold, and virtual items like an RPG character.
+Turn your daily life into a game! This application helps you track habits, daily tasks, and to-dos, rewarding you with XP, gold, and virtual items like an RPG character.
 
- ![screenshot_placeholder](link_to_your_screenshot.png)
+ ![screenshot_placeholder](screenshot.png)
 
 ## Features
 
@@ -48,8 +46,6 @@ Turn your daily life into a game! This Pygame application helps you track habits
    
    *(Or `python -m pip install pygame` or `pip3 install pygame` depending on your system setup)*
 
-
-
 ## Running the Application
 
 Navigate to the project directory in your terminal and run the main script:
@@ -57,8 +53,6 @@ Navigate to the project directory in your terminal and run the main script:
 ```bash
 python main.py
 ```
-
-
 
 * The application window should appear.
 * On the very first run, it will automatically create the `rpg_life.db` database file and the `.last_run_date` file to track daily resets.
@@ -112,12 +106,6 @@ rpg-life-tracker/
 
 Contributions are welcome! Feel free to fork the repository, make improvements, and submit a pull request. Please adhere to standard Python coding practices.
 
-
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-
-```
-
