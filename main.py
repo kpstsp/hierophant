@@ -22,6 +22,7 @@ BLUE = (0, 0, 255) # Используемый синий фон
 GOLD_COLOR = (255, 215, 0)
 XP_COLOR = (150, 150, 255)
 HEALTH_COLOR = (255, 100, 100)
+LIGHT_BLUE = (173, 216, 230)  # Light blue color for active input fields
 
 ASSETS_FOLDER = 'assets'
 DEFAULT_BG_COLOR = (40, 120, 190) # Примерно синий цвет фона
@@ -294,18 +295,11 @@ def draw_task_list(surface, title, tasks, task_type, x, y, w, h):
         draw_text(surface, task['name'], FONT_SMALL, BLACK, task_name_rect)
 
         if task_type == 'habits':
-            plus_rect = pygame.Rect(task_rect.right - button_size*3 - 15, task_rect.centery - button_size // 2, button_size, button_size)
-            pygame.draw.rect(surface, GREEN, plus_rect, border_radius=3)
-            plus_text = FONT_MEDIUM.render("+", True, WHITE)
-            surface.blit(plus_text, plus_text.get_rect(center=plus_rect.center))
-            click_areas.append((plus_rect, task_type, task['id'], 'positive'))
-            
-            if task['type'] in ('-', '+-'):
-                minus_rect = pygame.Rect(task_rect.right - button_size*2 - 10, task_rect.centery - button_size // 2, button_size, button_size)
-                pygame.draw.rect(surface, RED, minus_rect, border_radius=3)
-                minus_text = FONT_MEDIUM.render("-", True, WHITE)
-                surface.blit(minus_text, minus_text.get_rect(center=minus_rect.center))
-                click_areas.append((minus_rect, task_type, task['id'], 'negative'))
+            # Edit button with feather icon
+            edit_rect = pygame.Rect(task_rect.right - button_size*2 - 10, task_rect.centery - button_size // 2, button_size, button_size)
+            pygame.draw.rect(surface, BLUE, edit_rect, border_radius=3)
+            surface.blit(SPRITES['feather'], edit_rect.topleft)
+            click_areas.append((edit_rect, task_type, task['id'], 'edit'))
 
         elif task_type == 'dailies':
             check_rect = pygame.Rect(task_rect.right - button_size*2 - 10, task_rect.centery - button_size // 2, button_size, button_size)
@@ -442,6 +436,67 @@ def draw_rewards_panel(surface, rewards, character_gold, x, y, w, h):
 
     return click_areas
 
+def draw_edit_popup(surface, task_data, active_field):
+    """Рисует всплывающее окно для редактирования задачи."""
+    popup_width = 400
+    popup_height = 200
+    popup_x = (SCREEN_WIDTH - popup_width) // 2
+    popup_y = (SCREEN_HEIGHT - popup_height) // 2
+    popup_rect = pygame.Rect(popup_x, popup_y, popup_width, popup_height)
+
+    # Draw popup background
+    pygame.draw.rect(surface, WHITE, popup_rect, border_radius=5)
+    pygame.draw.rect(surface, BLACK, popup_rect, 1, border_radius=5)
+
+    # Title
+    title_surf = FONT_MEDIUM.render("Edit Habit", True, BLACK)
+    title_rect = title_surf.get_rect(centerx=popup_rect.centerx, top=popup_rect.top + 20)
+    surface.blit(title_surf, title_rect)
+
+    # Input fields
+    field_height = 30
+    field_width = popup_width - 60
+    fields = {}
+
+    # Name field
+    name_label = FONT_SMALL.render("Name:", True, BLACK)
+    name_rect = pygame.Rect(popup_x + 30, popup_y + 60, field_width, field_height)
+    pygame.draw.rect(surface, WHITE if active_field != 'name' else LIGHT_BLUE, name_rect, border_radius=3)
+    pygame.draw.rect(surface, BLACK, name_rect, 1, border_radius=3)
+    name_text = FONT_SMALL.render(task_data.get('name', ''), True, BLACK)
+    surface.blit(name_label, (name_rect.left, name_rect.top - 20))
+    surface.blit(name_text, (name_rect.left + 5, name_rect.centery - name_text.get_height()//2))
+    fields['name'] = name_rect
+
+    # Type field
+    type_label = FONT_SMALL.render("Type (+/-/+-):", True, BLACK)
+    type_rect = pygame.Rect(popup_x + 30, popup_y + 120, field_width, field_height)
+    pygame.draw.rect(surface, WHITE if active_field != 'type' else LIGHT_BLUE, type_rect, border_radius=3)
+    pygame.draw.rect(surface, BLACK, type_rect, 1, border_radius=3)
+    type_text = FONT_SMALL.render(task_data.get('type', ''), True, BLACK)
+    surface.blit(type_label, (type_rect.left, type_rect.top - 20))
+    surface.blit(type_text, (type_rect.left + 5, type_rect.centery - type_text.get_height()//2))
+    fields['type'] = type_rect
+
+    # Buttons
+    button_width = 80
+    button_height = 30
+    button_y = popup_rect.bottom - 50
+
+    save_rect = pygame.Rect(popup_rect.centerx - button_width - 10, button_y, button_width, button_height)
+    pygame.draw.rect(surface, GREEN, save_rect, border_radius=3)
+    save_text = FONT_SMALL.render("Save", True, WHITE)
+    surface.blit(save_text, save_text.get_rect(center=save_rect.center))
+    fields['save'] = save_rect
+
+    cancel_rect = pygame.Rect(popup_rect.centerx + 10, button_y, button_width, button_height)
+    pygame.draw.rect(surface, RED, cancel_rect, border_radius=3)
+    cancel_text = FONT_SMALL.render("Cancel", True, WHITE)
+    surface.blit(cancel_text, cancel_text.get_rect(center=cancel_rect.center))
+    fields['cancel'] = cancel_rect
+
+    return fields, popup_rect
+
 # --- Основной игровой цикл ---
 def game_loop():
     """Главный цикл игры."""
@@ -462,6 +517,10 @@ def game_loop():
     input_mode = None
     input_data = {}
     active_input_field = None
+
+    edit_mode = None
+    edit_data = {}
+    active_edit_field = None
 
     last_frame_main_ui_areas = []
     last_frame_popup_areas = {}
@@ -557,6 +616,30 @@ def game_loop():
                         last_frame_popup_rect = None
                         last_frame_popup_areas = {}
 
+                elif edit_mode:
+                    # Handle edit popup clicks
+                    clicked_popup_element = False
+                    for field_name, field_rect in last_frame_popup_areas.items():
+                        if field_rect.collidepoint(mouse_pos):
+                            clicked_popup_element = True
+                            if field_name in ['name', 'type']:
+                                active_edit_field = field_name
+                            elif field_name == 'save':
+                                # Update the task in database
+                                if edit_data.get('name'):  # Ensure name is not empty
+                                    update_task('habits', edit_data['id'], {
+                                        'name': edit_data['name'],
+                                        'type': edit_data.get('type', '+-')
+                                    })
+                                    habits = get_tasks('habits')  # Refresh habits list
+                                    edit_mode = None
+                                    edit_data = {}
+                                    active_edit_field = None
+                            elif field_name == 'cancel':
+                                edit_mode = None
+                                edit_data = {}
+                                active_edit_field = None
+                            break
 
                 elif not input_mode:
                     for area_rect, area_type, item_id, action in last_frame_main_ui_areas:
@@ -608,6 +691,13 @@ def game_loop():
                                         update_task('todos', item_id, {'completed': new_status})
                                         # Refresh todos list
                                         todos = get_tasks('todos')
+                            elif action == 'edit' and area_type == 'habits':
+                                # Get task data and enter edit mode
+                                task = next((t for t in habits if t['id'] == item_id), None)
+                                if task:
+                                    edit_mode = True
+                                    edit_data = task.copy()
+                                    active_edit_field = 'name'
                             # Остальная логика UI...
                             break
 
@@ -644,6 +734,11 @@ def game_loop():
                  print(f"  Drew popup. Final Rect: {current_popup_rect}")
             else:
                  print("  WARNING: draw_input_popup returned None for rect!")
+
+        if edit_mode:
+            current_popup_areas, current_popup_rect = draw_edit_popup(screen, edit_data, active_edit_field)
+            last_frame_popup_areas = current_popup_areas
+            last_frame_popup_rect = current_popup_rect
 
         # ОБНОВЛЯЕМ ПЕРЕМЕННЫЕ ДЛЯ СЛЕДУЮЩЕГО КАДРА
         last_frame_main_ui_areas = current_main_ui_areas
