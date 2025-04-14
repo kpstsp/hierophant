@@ -287,7 +287,6 @@ def draw_task_list(surface, title, tasks, task_type, x, y, w, h):
         if item_y + item_height > y + h - 10: break # Не выходим за границы
 
         task_rect = pygame.Rect(x + 5, item_y, w - 10, item_height)
-        # ... (остальная отрисовка задачи как раньше) ...
         pygame.draw.rect(surface, WHITE, task_rect, border_radius=3)
         pygame.draw.rect(surface, DARK_GRAY, task_rect, 1, border_radius=3)
 
@@ -295,36 +294,49 @@ def draw_task_list(surface, title, tasks, task_type, x, y, w, h):
         draw_text(surface, task['name'], FONT_SMALL, BLACK, task_name_rect)
 
         if task_type == 'habits':
-            plus_rect = pygame.Rect(task_rect.right - button_size*2 - 10, task_rect.centery - button_size // 2, button_size, button_size)
+            plus_rect = pygame.Rect(task_rect.right - button_size*3 - 15, task_rect.centery - button_size // 2, button_size, button_size)
             pygame.draw.rect(surface, GREEN, plus_rect, border_radius=3)
             plus_text = FONT_MEDIUM.render("+", True, WHITE)
             surface.blit(plus_text, plus_text.get_rect(center=plus_rect.center))
             click_areas.append((plus_rect, task_type, task['id'], 'positive'))
+            
             if task['type'] in ('-', '+-'):
-                minus_rect = pygame.Rect(task_rect.right - button_size - 5, task_rect.centery - button_size // 2, button_size, button_size)
+                minus_rect = pygame.Rect(task_rect.right - button_size*2 - 10, task_rect.centery - button_size // 2, button_size, button_size)
                 pygame.draw.rect(surface, RED, minus_rect, border_radius=3)
                 minus_text = FONT_MEDIUM.render("-", True, WHITE)
                 surface.blit(minus_text, minus_text.get_rect(center=minus_rect.center))
                 click_areas.append((minus_rect, task_type, task['id'], 'negative'))
 
         elif task_type == 'dailies':
-            check_rect = pygame.Rect(task_rect.right - button_size - 5, task_rect.centery - button_size // 2, button_size, button_size)
+            check_rect = pygame.Rect(task_rect.right - button_size*2 - 10, task_rect.centery - button_size // 2, button_size, button_size)
             if task['completed_today']:
-                pygame.draw.rect(surface, DARK_GRAY, check_rect, border_radius=3)
-                surface.blit(SPRITES['checkmark'], check_rect.topleft)
-            else:
                 pygame.draw.rect(surface, GREEN, check_rect, border_radius=3)
                 surface.blit(SPRITES['checkmark'], check_rect.topleft)
-                click_areas.append((check_rect, task_type, task['id'], 'complete'))
+            else:
+                pygame.draw.rect(surface, RED, check_rect, border_radius=3)
+                surface.blit(SPRITES['x_button'], check_rect.topleft)
+                click_areas.append((check_rect, task_type, task['id'], 'toggle_complete'))
+            
             streak_text = f"Streak: {task.get('streak', 0)}"
             streak_surf = FONT_SMALL.render(streak_text, True, BLUE)
             surface.blit(streak_surf, (task_rect.left + 5, task_rect.bottom - 15))
 
         elif task_type == 'todos':
-            check_rect = pygame.Rect(task_rect.right - button_size - 5, task_rect.centery - button_size // 2, button_size, button_size)
-            pygame.draw.rect(surface, GREEN, check_rect, border_radius=3)
-            surface.blit(SPRITES['checkmark'], check_rect.topleft)
-            click_areas.append((check_rect, task_type, task['id'], 'complete'))
+            check_rect = pygame.Rect(task_rect.right - button_size*2 - 10, task_rect.centery - button_size // 2, button_size, button_size)
+            if task['completed']:
+                pygame.draw.rect(surface, GREEN, check_rect, border_radius=3)
+                surface.blit(SPRITES['checkmark'], check_rect.topleft)
+            else:
+                pygame.draw.rect(surface, RED, check_rect, border_radius=3)
+                surface.blit(SPRITES['x_button'], check_rect.topleft)
+                click_areas.append((check_rect, task_type, task['id'], 'toggle_complete'))
+
+        # Add delete button for all task types
+        delete_rect = pygame.Rect(task_rect.right - button_size - 5, task_rect.centery - button_size // 2, button_size, button_size)
+        pygame.draw.rect(surface, DARK_GRAY, delete_rect, border_radius=3)
+        delete_text = FONT_MEDIUM.render("×", True, WHITE)
+        surface.blit(delete_text, delete_text.get_rect(center=delete_rect.center))
+        click_areas.append((delete_rect, task_type, task['id'], 'delete'))
 
         item_y += item_height + 5
 
@@ -557,6 +569,45 @@ def game_loop():
                                 last_frame_popup_areas = {}
                                 last_frame_popup_rect = None
                                 skip_first_popup_click = True
+                            elif action == 'delete':
+                                # Handle deletion for all task types
+                                delete_task(area_type, item_id)
+                                # Refresh the appropriate task list
+                                if area_type == 'habits':
+                                    habits = get_tasks('habits')
+                                elif area_type == 'dailies':
+                                    dailies = get_tasks('dailies')
+                                elif area_type == 'todos':
+                                    todos = get_tasks('todos')
+                            elif action == 'toggle_complete':
+                                if area_type == 'dailies':
+                                    # Get current task data
+                                    task = next((t for t in dailies if t['id'] == item_id), None)
+                                    if task:
+                                        # Toggle completion status
+                                        new_status = not task['completed_today']
+                                        # Update streak if completing
+                                        if new_status:
+                                            streak = task.get('streak', 0) + 1
+                                            update_task('dailies', item_id, {
+                                                'completed_today': new_status,
+                                                'streak': streak,
+                                                'last_completed': datetime.date.today().isoformat()
+                                            })
+                                        else:
+                                            # If unchecking, just update completed_today
+                                            update_task('dailies', item_id, {'completed_today': new_status})
+                                        # Refresh dailies list
+                                        dailies = get_tasks('dailies')
+                                
+                                elif area_type == 'todos':
+                                    # Toggle completion status for todo
+                                    task = next((t for t in todos if t['id'] == item_id), None)
+                                    if task:
+                                        new_status = not task['completed']
+                                        update_task('todos', item_id, {'completed': new_status})
+                                        # Refresh todos list
+                                        todos = get_tasks('todos')
                             # Остальная логика UI...
                             break
 
