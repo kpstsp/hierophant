@@ -2,7 +2,7 @@
 
 Turn your daily life into a game! This application helps you track habits, daily tasks, and to-dos, rewarding you with XP, gold, and virtual items like an RPG character.
 
- ![screenshot_placeholder](screenshot.png)
+ ![screenshot_placeholder](screen.png)
 
 ## Features
 
